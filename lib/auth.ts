@@ -12,8 +12,20 @@ interface User {
   selectedSkin: string
 }
 
-const users: { [key: string]: User } = {}
-const sessions: { [key: string]: { username: string } } = {}
+// Inicializējam lietotāju un sesiju objektus
+let users: { [key: string]: User } = {}
+let sessions: { [key: string]: { username: string } } = {}
+
+// Funkcija, kas saņem lietotāju datus no klienta
+export async function syncUserData(userData: { [key: string]: User }) {
+  users = { ...users, ...userData }
+  return { success: true }
+}
+
+// Servera puses funkcija, kas atgriež lietotāju datus
+export async function getUsers() {
+  return users
+}
 
 export async function register(username: string, password: string) {
   // Check if username already exists
@@ -71,14 +83,11 @@ export async function logout() {
   const sessionId = cookies().get("sessionId")?.value
 
   if (sessionId) {
-    // Delete session
     delete sessions[sessionId]
-
-    // Clear cookie
     cookies().delete("sessionId")
   }
 
-  return true
+  return { success: true }
 }
 
 export async function checkAuth() {
@@ -92,6 +101,7 @@ export async function checkAuth() {
 }
 
 export async function getUserData(username: string) {
+  // Pārbaudam autentifikāciju
   const user = await checkAuth()
   if (!user) {
     throw new Error("Unauthorized")
@@ -102,92 +112,89 @@ export async function getUserData(username: string) {
     throw new Error("User not found")
   }
 
-  return {
-    username: userData.username,
-    coins: userData.coins,
-    purchasedSkins: userData.purchasedSkins,
-    selectedSkin: userData.selectedSkin
-  }
+  // Nenosūtām paroli
+  const { password, ...rest } = userData
+  return rest
 }
 
-export async function addCoins(username: string, amount: number) {
+export async function updateScore(username: string, score: number) {
   // Pārbaudam autentifikāciju
   const user = await checkAuth()
   if (!user || user.username !== username) {
     throw new Error("Unauthorized")
   }
 
-  if (users[username]) {
-    users[username].coins += amount
-    return {
-      success: true,
-      coins: users[username].coins
-    }
+  // Atjauninām lietotāja datus
+  if (!users[username]) {
+    throw new Error("User not found")
   }
 
-  throw new Error("User not found")
+  return { success: true }
 }
 
-export async function purchaseSkin(username: string, skinId: string) {
+export async function addCoins(username: string, amount: number) {
+  // Verify user is authenticated
   const user = await checkAuth()
   if (!user || user.username !== username) {
     throw new Error("Unauthorized")
   }
 
-  // Pārbaudam, vai lietotājs eksistē
+  // Add coins to user
   if (!users[username]) {
     throw new Error("User not found")
   }
 
-  // Iegūstam pieejamos skin no lokālās funkcijas
-  const skins = await getAvailableSkins()
-  const skin = skins.find((s: any) => s.id === skinId)
+  users[username].coins += amount
 
-  if (!skin) {
-    throw new Error("Skin not found")
+  return { success: true, coins: users[username].coins }
+}
+
+export async function purchaseSkin(username: string, skinId: string, price: number) {
+  // Verify user is authenticated
+  const user = await checkAuth()
+  if (!user || user.username !== username) {
+    throw new Error("Unauthorized")
   }
 
-  // Pārbaudam, vai skin jau ir nopirkts
+  // Check if user has enough coins
+  if (users[username].coins < price) {
+    throw new Error("Not enough coins")
+  }
+
+  // Check if user already has this skin
   if (users[username].purchasedSkins.includes(skinId)) {
     throw new Error("Skin already purchased")
   }
 
-  // Pārbaudam, vai pietiek monētas
-  if (users[username].coins < skin.price) {
-    throw new Error("Not enough coins")
-  }
-
-  // Atjaunojam lietotāja datus
-  users[username].coins -= skin.price
+  // Purchase skin
+  users[username].coins -= price
   users[username].purchasedSkins.push(skinId)
 
   return {
+    success: true,
     coins: users[username].coins,
-    purchasedSkins: users[username].purchasedSkins
+    purchasedSkins: users[username].purchasedSkins,
   }
 }
 
 export async function selectSkin(username: string, skinId: string) {
+  // Verify user is authenticated
   const user = await checkAuth()
   if (!user || user.username !== username) {
     throw new Error("Unauthorized")
   }
 
-  // Pārbaudam, vai lietotājs eksistē
-  if (!users[username]) {
-    throw new Error("User not found")
-  }
-
-  // Pārbaudam, vai skin ir nopirkts
+  // Check if user has this skin
   if (!users[username].purchasedSkins.includes(skinId)) {
     throw new Error("Skin not purchased")
   }
 
-  // Atjaunojam izvēlēto skin
+  // Select skin
   users[username].selectedSkin = skinId
 
   return {
-    selectedSkin: users[username].selectedSkin
+    success: true,
+    selectedSkin: skinId,
   }
 }
 
@@ -243,5 +250,21 @@ export async function getAvailableSkins() {
         "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 512 512'%3E%3Ccircle cx='256' cy='256' r='200' fill='%23ffc107'/%3E%3Ccircle cx='180' cy='180' r='20' fill='%23000'/%3E%3Ccircle cx='320' cy='180' r='20' fill='%23000'/%3E%3Cpath d='M200 300 Q 256 360 312 300' stroke='%23ff9800' stroke-width='20' fill='none'/%3E%3C/svg%3E",
     },
   ]
+}
+
+export async function updateUserData(username: string, data: Partial<User>) {
+  // Pārbaudam autentifikāciju
+  const user = await checkAuth()
+  if (!user || user.username !== username) {
+    throw new Error("Unauthorized")
+  }
+
+  // Atjauninām lietotāja datus
+  users[username] = {
+    ...users[username],
+    ...data,
+  }
+
+  return { success: true }
 }
 

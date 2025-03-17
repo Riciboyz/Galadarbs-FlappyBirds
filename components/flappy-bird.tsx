@@ -226,10 +226,17 @@ export default function FlappyBird({ username, onGameOver }: FlappyBirdProps) {
   }, [username, onGameOver, skinLoaded])
 
   return (
+    <div className="relative w-full max-w-[320px] mx-auto">
       <canvas
         ref={canvasRef}
-      className="border border-gray-300 rounded-lg shadow-lg"
+        className="w-full h-full border-4 border-green-500 rounded-xl shadow-2xl bg-gradient-to-b from-sky-400 to-sky-300"
       />
+      <div className="absolute inset-0 pointer-events-none">
+        <div className="absolute top-4 left-4 w-16 h-16 bg-white/30 rounded-full"></div>
+        <div className="absolute top-8 right-8 w-20 h-20 bg-white/30 rounded-full"></div>
+        <div className="absolute bottom-12 left-12 w-24 h-24 bg-white/30 rounded-full"></div>
+      </div>
+    </div>
   )
 }
 

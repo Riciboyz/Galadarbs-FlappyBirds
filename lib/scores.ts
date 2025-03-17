@@ -12,7 +12,7 @@ interface Score {
 }
 
 // Store scores in memory (reālā projektā šeit būtu datubāze)
-const userHighScores: { [username: string]: Score } = {}
+let userHighScores: { [username: string]: Score } = {}
 
 // Add some example scores for demonstration
 userHighScores["Arturs"] = {
@@ -31,6 +31,17 @@ userHighScores["Liga"] = {
   username: "Liga",
   score: 12,
   date: new Date(Date.now() - 10800000).toISOString(), // 3 hours ago
+}
+
+// Funkcija, kas saņem rezultātu datus no klienta
+export async function syncScoresData(scoresData: { [username: string]: Score }) {
+  userHighScores = { ...userHighScores, ...scoresData }
+  return { success: true }
+}
+
+// Servera puses funkcija, kas atgriež rezultātu datus
+export async function getScoresData() {
+  return userHighScores
 }
 
 export async function saveScore(username: string, score: number) {
@@ -66,7 +77,8 @@ export async function getTopScores() {
     // Convert the userHighScores object to an array
     const users = Object.values(userHighScores).map(user => ({
       username: user.username,
-      score: user.score
+      score: user.score,
+      date: user.date
     }))
     
     // Sort by score in descending order
